@@ -968,6 +968,9 @@ else ()
                  "${draco_src_root}/tools/draco_encoder.cc")
   target_link_libraries(draco_encoder PRIVATE draco)
 
+  add_executable(draco_bbox "${draco_src_root}/tools/draco_bbox.cc")
+  target_link_libraries(draco_bbox PRIVATE dracodec draco)
+
   if (ENABLE_TESTS)
     add_executable(draco_tests ${draco_test_sources})
     include_directories("${draco_build_dir}"
@@ -1005,7 +1008,7 @@ else ()
             DESTINATION "${CMAKE_INSTALL_PREFIX}/lib")
   endif ()
 
-  install(TARGETS draco_decoder draco_encoder DESTINATION
+  install(TARGETS draco_decoder draco_encoder draco_bbox DESTINATION
           "${CMAKE_INSTALL_PREFIX}/bin")
 
   # Generate a CMake config file.
