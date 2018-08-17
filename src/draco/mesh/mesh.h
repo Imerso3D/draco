@@ -106,6 +106,10 @@ class Mesh : public PointCloud {
     MeshAttributeElementType element_type;
   };
 
+  // Remove parts of mesh with an include filter
+  void FilterMesh(const IndexTypeVector<FaceIndex, FaceIndex>& faces_to_include);
+
+
  protected:
 #ifdef DRACO_ATTRIBUTE_DEDUPLICATION_SUPPORTED
   // Extends the point deduplication to face corners. This method is called from

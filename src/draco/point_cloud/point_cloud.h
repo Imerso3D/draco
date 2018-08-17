@@ -97,6 +97,10 @@ class PointCloud {
   // attribute ids of all subsequent attributes.
   virtual void DeleteAttribute(int att_id);
 
+  // Removes an arbitrary amount of points by specifying a mapping from new point
+  // indices to existing indices in |points_to_include|
+  void FilterCloud(const IndexTypeVector<PointIndex, PointIndex>& points_to_include);
+
 #ifdef DRACO_ATTRIBUTE_DEDUPLICATION_SUPPORTED
   // Deduplicates all attribute values (all attribute entries with the same
   // value are merged into a single entry).

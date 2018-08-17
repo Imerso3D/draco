@@ -148,6 +148,21 @@ void PointCloud::DeleteAttribute(int att_id) {
   }
 }
 
+void PointCloud::FilterCloud(
+  const IndexTypeVector<PointIndex, PointIndex>& points_to_include) {
+  for (PointIndex new_point_id(0); new_point_id < points_to_include.size(); new_point_id++) {
+    auto old_point_id = points_to_include[new_point_id];
+    for (int32_t a = 0; a < num_attributes(); ++a) {
+      attribute(a)->SetPointMapEntry(new_point_id,
+                                     attribute(a)->mapped_index(old_point_id));
+    }
+  }
+  for (int32_t a = 0; a < num_attributes(); ++a) {
+    attribute(a)->SetExplicitMapping(points_to_include.size());
+  }
+  set_num_points(points_to_include.size());
+}
+
 #ifdef DRACO_ATTRIBUTE_DEDUPLICATION_SUPPORTED
 void PointCloud::DeduplicatePointIds() {
   // Hashing function for a single vertex.
