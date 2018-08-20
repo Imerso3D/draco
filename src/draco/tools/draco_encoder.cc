@@ -20,6 +20,7 @@
 #include "draco/core/cycle_timer.h"
 #include "draco/io/mesh_io.h"
 #include "draco/io/point_cloud_io.h"
+#include "draco/tools/draco_encoder.h"
 
 namespace {
 
@@ -135,58 +136,6 @@ void PrintOptions(const draco::PointCloud &pc, const Options &options) {
     printf("  Generic: Skipped\n");
   }
   printf("\n");
-}
-
-int EncodePointCloudToFile(const draco::PointCloud &pc, const std::string &file,
-                           draco::Encoder *encoder) {
-  draco::CycleTimer timer;
-  // Encode the geometry.
-  draco::EncoderBuffer buffer;
-  timer.Start();
-  const draco::Status status = encoder->EncodePointCloudToBuffer(pc, &buffer);
-  if (!status.ok()) {
-    printf("Failed to encode the point cloud.\n");
-    printf("%s\n", status.error_msg());
-    return -1;
-  }
-  timer.Stop();
-  // Save the encoded geometry into a file.
-  std::ofstream out_file(file, std::ios::binary);
-  if (!out_file) {
-    printf("Failed to create the output file.\n");
-    return -1;
-  }
-  out_file.write(buffer.data(), buffer.size());
-  printf("Encoded point cloud saved to %s (%" PRId64 " ms to encode).\n",
-         file.c_str(), timer.GetInMs());
-  printf("\nEncoded size = %zu bytes\n\n", buffer.size());
-  return 0;
-}
-
-int EncodeMeshToFile(const draco::Mesh &mesh, const std::string &file,
-                     draco::Encoder *encoder) {
-  draco::CycleTimer timer;
-  // Encode the geometry.
-  draco::EncoderBuffer buffer;
-  timer.Start();
-  const draco::Status status = encoder->EncodeMeshToBuffer(mesh, &buffer);
-  if (!status.ok()) {
-    printf("Failed to encode the mesh.\n");
-    printf("%s\n", status.error_msg());
-    return -1;
-  }
-  timer.Stop();
-  // Save the encoded geometry into a file.
-  std::ofstream out_file(file, std::ios::binary);
-  if (!out_file) {
-    printf("Failed to create the output file.\n");
-    return -1;
-  }
-  out_file.write(buffer.data(), buffer.size());
-  printf("Encoded mesh saved to %s (%" PRId64 " ms to encode).\n", file.c_str(),
-         timer.GetInMs());
-  printf("\nEncoded size = %zu bytes\n\n", buffer.size());
-  return 0;
 }
 
 }  // anonymous namespace
@@ -359,9 +308,9 @@ int main(int argc, char **argv) {
   int ret = -1;
   const bool input_is_mesh = mesh && mesh->num_faces() > 0;
   if (input_is_mesh)
-    ret = EncodeMeshToFile(*mesh, options.output, &encoder);
+    ret = draco::EncodeMeshToFile(*mesh, options.output, &encoder);
   else
-    ret = EncodePointCloudToFile(*pc.get(), options.output, &encoder);
+    ret = draco::EncodePointCloudToFile(*pc.get(), options.output, &encoder);
 
   if (ret != -1 && options.compression_level < 10) {
     printf(
