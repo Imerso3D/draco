@@ -207,6 +207,22 @@ int main(int argc, char **argv) {
     return -1;
   }//
 
+  if (options.output.empty()) {
+    // Create a default output file with a _cropped suffix
+    long start = std::max<long>(0, options.input.length() - 4);
+    if (options.input.compare(start, 4, ".drc") == 0 || options.input.compare(start, 4, ".DRC") == 0) {
+      options.output = options.input.substr(0, start) + "_cropped.drc";
+    } else {
+      // Our simple file extension stripper didn't work, just append to input instead
+      options.output = options.input + "cropped.drc";
+    }
+  }
+
+  draco::Encoder encoder;
+  // Convert compression level to speed (that 0 = slowest, 10 = fastest).
+  const int speed = 10 - options.compression_level;
+  encoder.SetSpeedOptions(speed, speed);
+
 
   if (mesh) {
     printf("Original mesh has %d faces, %d points...\n", mesh->num_faces(), mesh->num_points());
@@ -236,29 +252,34 @@ int main(int argc, char **argv) {
 
     mesh->FilterMesh(faces_to_include);
     printf("Filtered mesh has %d faces, %d points\n", mesh->num_faces(), mesh->num_points());
-  }
+    if (draco::EncodeMeshToFile(*mesh, options.output, &encoder) != 0) {
+      printf("Failed to encode mesh to file\n");
+      return -1;
+    }
+  } else {
+    draco::IndexTypeVector<draco::PointIndex, draco::PointIndex> points_to_include;
+    for (draco::PointIndex i(0); i < pc->num_points(); i++) {
+      const draco::PointAttribute *const att =
+        pc->GetNamedAttribute(draco::GeometryAttribute::POSITION);
+      if (att == nullptr || att->size() == 0)
+        return -1;  // Position attribute must be valid.
 
-  if (options.output.empty()) {
-    // Create a default output file with a _cropped suffix
-    long start = std::max<long>(0, options.input.length() - 4);
-    if (options.input.compare(start, 4, ".drc") == 0 || options.input.compare(start, 4, ".DRC") == 0) {
-      options.output = options.input.substr(0, start) + "_cropped.drc";
-    } else {
-      // Our simple file extension stripper didn't work, just append to input instead
-      options.output = options.input + "cropped.drc";
+      std::array<float, 3> v;
+      if (!att->ConvertValue<float, 3>(att->mapped_index(i), &v[0]))
+        return -1;
+      if (pointInside(v, bbox)) {
+        points_to_include.push_back(i);
+      }
+    }
+
+    pc->FilterCloud(points_to_include);
+    if (draco::EncodePointCloudToFile(*pc, options.output, &encoder) != 0) {
+      printf("Failed to encode point cloud to file\n");
+      return -1;
     }
   }
-  draco::Encoder encoder;
-  // Convert compression level to speed (that 0 = slowest, 10 = fastest).
-  const int speed = 10 - options.compression_level;
-  encoder.SetSpeedOptions(speed, speed);
 
-  if (draco::EncodeMeshToFile(*mesh, options.output, &encoder) != 0) {
-    printf("Failed to encode mesh to file\n");
-    return -1;
-  } else {
-    printf("Wrote filtered mesh/cloud to %s\n", options.output.c_str());
-    return 0;
-  }
+  printf("Wrote filtered mesh/cloud to %s\n", options.output.c_str());
+  return 0;
 }
 
