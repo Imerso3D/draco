@@ -17,7 +17,9 @@
 #ifndef DRACO_DRACO_BBOX_H
 #define DRACO_DRACO_BBOX_H
 
+#include <array>
 #include "draco/core/status.h"
+#include "draco/mesh/mesh.h"
 
 namespace draco {
   struct Triangle3D {

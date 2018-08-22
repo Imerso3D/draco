@@ -584,7 +584,8 @@ set(draco_test_sources
     "${draco_src_root}/metadata/metadata_encoder_test.cc"
     "${draco_src_root}/metadata/metadata_test.cc"
     "${draco_src_root}/point_cloud/point_cloud_builder_test.cc"
-    "${draco_src_root}/point_cloud/point_cloud_test.cc")
+    "${draco_src_root}/point_cloud/point_cloud_test.cc"
+    "${draco_src_root}/tools/draco_bbox_test.cc")
 
 set(draco_version_sources
     "${draco_build_dir}/draco_version.cc"
