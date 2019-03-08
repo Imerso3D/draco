@@ -18,6 +18,7 @@
 #include <fstream>
 #include <set>
 #include <algorithm>
+#include <fmt/format.h>
 
 #include "draco/compression/encode.h"
 #include "draco/core/cycle_timer.h"
@@ -53,9 +54,24 @@ namespace {
     printf("bbox_file should be a PLY or OBJ point cloud with at least two points\n");
   }
 
+  enum class ExitCode : int {
+      Success = 0,
+      InvalidArguments = 1,
+      FailedToOpenInputDrcFile = 2,
+      FailedToDecodeInputDrcFile = 3,
+      EmtpyInputDrcFile = 4,
+      FailedToLoadPly = 5,
+      NoOverlap = 6,
+      FailedToCropMesh = 7,
+      FailedToEncodeMeshToFile = 8,
+      FailedToCropCloud = 9,
+      FailedToEncodePointCloudToFile = 10,
+
+  };
+
   int ReturnError(const draco::Status &status) {
-    printf("Failed to decode the input file %s\n", status.error_msg());
-    return -1;
+    std::cerr << "Failed to decode the input .drc file.\n";
+    return static_cast<int>(ExitCode::FailedToDecodeInputDrcFile);
   }
 
 
@@ -69,7 +85,7 @@ int main(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
     if (!strcmp("-h", argv[i]) || !strcmp("-?", argv[i])) {
       Usage();
-      return 0;
+      return static_cast<int>(ExitCode::Success);
     } else if (!strcmp("-i", argv[i]) && i < argc_check) {
       options.input = argv[++i];
     } else if (!strcmp("-o", argv[i]) && i < argc_check) {
@@ -80,13 +96,13 @@ int main(int argc, char **argv) {
   }
   if (argc < 3 || options.input.empty()) {
     Usage();
-    return -1;
+    return static_cast<int>(ExitCode::InvalidArguments);
   }
 
   std::ifstream input_file(options.input, std::ios::binary);
   if (!input_file) {
-    printf("Failed opening the input file.\n");
-    return -1;
+    std::cerr << "Failed opening the input file.\n";
+    return static_cast<int>(ExitCode::FailedToOpenInputDrcFile);
   }
 
   // Read the file stream into a buffer.
@@ -98,8 +114,8 @@ int main(int argc, char **argv) {
   input_file.read(data.data(), file_size);
 
   if (data.empty()) {
-    printf("Empty input file.\n");
-    return -1;
+    std::cerr << "Empty input .drc file.\n";
+    return static_cast<int>(ExitCode::EmtpyInputDrcFile);
   }
 
   // Read bounding box point cloud file
@@ -107,9 +123,9 @@ int main(int argc, char **argv) {
   {
     auto maybe_pc = draco::ReadPointCloudFromFile(options.bbox_file);
     if (!maybe_pc.ok()) {
-      printf("Failed loading the bbox point cloud: %s.\n",
+      std::cerr << fmt::format("Failed loading the bbox point cloud: {}.\n",
              maybe_pc.status().error_msg());
-      return -1;
+     return static_cast<int>(ExitCode::FailedToLoadPly);
     }
     const draco::PointCloud* pc = maybe_pc.value().get();
     const draco::PointAttribute *const att =
@@ -119,8 +135,8 @@ int main(int argc, char **argv) {
     for (draco::PointIndex i(0); i < pc->num_points(); i++) {
       std::array<float, 3> pos{-1, -1, -1};
       if (!att->ConvertValue<float>(att->mapped_index(i), 3, &pos[0])) {
-        printf("Failed to get XYZ position from a point\n");
-        return -1;
+        std::cerr << "Failed to get XYZ position from a point\n";
+        return static_cast<int>(ExitCode::FailedToLoadPly);
       }
       points[i.value()] = pos;
     }
@@ -175,8 +191,8 @@ int main(int argc, char **argv) {
   }
 
   if (pc == nullptr) {
-    printf("Failed to decode the input file.\n");
-    return -1;
+    std::cerr << "Failed to decode the input .drc file.\n";
+    return static_cast<int>(ExitCode::FailedToDecodeInputDrcFile);
   }//
 
   if (options.output.empty()) {
@@ -200,31 +216,36 @@ int main(int argc, char **argv) {
     printf("Original mesh has %d faces, %d points...\n", mesh->num_faces(), mesh->num_points());
     auto status = draco::CropMesh(bbox, *mesh);
     if (status.code() != draco::Status::Code::OK) {
-      printf("Failed to crop mesh: %s", status.error_msg());
-      return -1;
+      std::cerr << fmt::format("Failed to crop mesh: {}\n", status.error_msg());
+      return static_cast<int>(ExitCode::FailedToCropMesh);
     }
     printf("Filtered mesh has %d faces, %d points\n", mesh->num_faces(), mesh->num_points());
 
+    if (mesh->num_points() == 0u) {
+      std::cerr << "There is no overlap between the bounding box of the point-cloud and the mesh.\n";
+      return static_cast<int>(ExitCode::NoOverlap);
+    }
+
     if (draco::EncodeMeshToFile(*mesh, options.output, &encoder) != 0) {
-      printf("Failed to encode mesh to file\n");
-      return -1;
+      std::cerr << "Failed to encode mesh to file\n";
+      return static_cast<int>(ExitCode::FailedToEncodeMeshToFile);
     }
   } else {
     printf("Original cloud has %d points...\n", pc->num_points());
     auto status = draco::CropCloud(bbox, *pc);
     if (status.code() != draco::Status::Code::OK) {
-      printf("Failed to crop cloud: %s", status.error_msg());
-      return -1;
+      std::cerr << fmt::format("Failed to crop cloud: {}\n", status.error_msg());
+      return static_cast<int>(ExitCode::FailedToCropCloud);
     }
     printf("Filtered cloud has %d points...\n", pc->num_points());
 
     if (draco::EncodePointCloudToFile(*pc, options.output, &encoder) != 0) {
-      printf("Failed to encode point cloud to file\n");
-      return -1;
+      std::cerr << "Failed to encode point cloud to file\n";
+      return static_cast<int>(ExitCode::FailedToEncodePointCloudToFile);
     }
   }
 
   printf("Wrote filtered mesh/cloud to %s\n", options.output.c_str());
-  return 0;
+  return static_cast<int>(ExitCode::Success);
 }
 
