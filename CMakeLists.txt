@@ -969,8 +969,9 @@ else ()
                  "${draco_src_root}/tools/draco_encoder.cc")
   target_link_libraries(draco_encoder PRIVATE draco)
 
+  find_package(fmt 5.2 REQUIRED)
   add_executable(draco_bbox "${draco_src_root}/tools/draco_bbox.cc")
-  target_link_libraries(draco_bbox PRIVATE dracodec draco)
+  target_link_libraries(draco_bbox PRIVATE dracodec draco fmt::fmt)
 
   if (ENABLE_TESTS)
     add_executable(draco_tests ${draco_test_sources})
